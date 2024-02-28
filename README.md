@@ -46,4 +46,4 @@ This command will scan `example.com` using a custom wordlist (`custom-wordlist.t
 - Use responsibly and respect the terms of service of the target domain.
 
 Feel free to modify the wordlist, output file, or any other parameters based on your needs.
-```
+
