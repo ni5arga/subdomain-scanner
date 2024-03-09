@@ -6,18 +6,25 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 )
 
 var (
 	targetDomain   string
 	wordlistPath   string
 	outputFilePath string
+	delay          int
 )
 
 func init() {
 	flag.StringVar(&targetDomain, "domain", "", "The target domain which will be scanned for subdomains. Example: example.com")
 	flag.StringVar(&wordlistPath, "wordlist", "subdomains.txt", "path to wordlist file, uses subdomains.txt if none provided")
 	flag.StringVar(&outputFilePath, "output-file", "found-subdomains.txt", "output file to write found subdomains to, uses found-subdomains.txt if none provided")
+	flag.IntVar(&delay, "delay", 0, "delay in milliseconds between requests, default is 0 millisecond or no delay")
+	flag.Usage = func() {
+		fmt.Println("Usage: go run scanner.go -domain example.com")
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 }
 
@@ -47,6 +54,7 @@ func main() {
 
 	for _, subdomain := range subdomains {
 		url := fmt.Sprintf("http://%s.%s", subdomain, targetDomain)
+		time.Sleep(time.Duration(delay) * time.Millisecond)
 		go scan(url, channel)
 	}
 
