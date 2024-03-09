@@ -43,18 +43,18 @@ func main() {
 
 	fmt.Fprintln(outputFile, "Discovered Subdomains with Status Code 200")
 
+	channel := make(chan int, len(subdomains))
+
+	for _, subdomain := range subdomains {
+		url := fmt.Sprintf("http://%s.%s", subdomain, targetDomain)
+		go scan(url, channel)
+	}
+
 	for _, subdomain := range subdomains {
 		url := fmt.Sprintf("http://%s.%s", subdomain, targetDomain)
 
-		resp, err := http.Get(url)
-		if err != nil {
-			// Ignore errors
-			continue
-		}
-		defer resp.Body.Close()
-
-		// check the response status code here
-		if resp.StatusCode == http.StatusOK {
+		statusCode := <-channel
+		if statusCode == 200 {
 			fmt.Printf("[✅] Discovered subdomain: %s\n", url)
 			// write the subdomain to file
 			fmt.Fprintln(outputFile, url)
@@ -76,4 +76,16 @@ func readWordlist(path string) ([]string, error) {
 	}
 
 	return subdomains, scanner.Err()
+}
+
+func scan(url string, channel chan int) {
+	resp, err := http.Get(url)
+
+	if resp == nil || err != nil {
+		channel <- 0
+		return
+	}
+
+	channel <- resp.StatusCode
+	defer resp.Body.Close()
 }
