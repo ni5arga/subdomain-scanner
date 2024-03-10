@@ -6,18 +6,25 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 )
 
 var (
 	targetDomain   string
 	wordlistPath   string
 	outputFilePath string
+	delay          int
 )
 
 func init() {
 	flag.StringVar(&targetDomain, "domain", "", "The target domain which will be scanned for subdomains. Example: example.com")
 	flag.StringVar(&wordlistPath, "wordlist", "subdomains.txt", "path to wordlist file, uses subdomains.txt if none provided")
 	flag.StringVar(&outputFilePath, "output-file", "found-subdomains.txt", "output file to write found subdomains to, uses found-subdomains.txt if none provided")
+	flag.IntVar(&delay, "delay", 0, "delay in milliseconds between requests, default is 0 millisecond or no delay")
+	flag.Usage = func() {
+		fmt.Println("Usage: go run scanner.go -domain example.com")
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 }
 
@@ -43,18 +50,19 @@ func main() {
 
 	fmt.Fprintln(outputFile, "Discovered Subdomains with Status Code 200")
 
+	channel := make(chan int, len(subdomains))
+
+	for _, subdomain := range subdomains {
+		url := fmt.Sprintf("http://%s.%s", subdomain, targetDomain)
+		time.Sleep(time.Duration(delay) * time.Millisecond)
+		go scan(url, channel)
+	}
+
 	for _, subdomain := range subdomains {
 		url := fmt.Sprintf("http://%s.%s", subdomain, targetDomain)
 
-		resp, err := http.Get(url)
-		if err != nil {
-			// Ignore errors
-			continue
-		}
-		defer resp.Body.Close()
-
-		// check the response status code here
-		if resp.StatusCode == http.StatusOK {
+		statusCode := <-channel
+		if statusCode == 200 {
 			fmt.Printf("[✅] Discovered subdomain: %s\n", url)
 			// write the subdomain to file
 			fmt.Fprintln(outputFile, url)
@@ -76,4 +84,16 @@ func readWordlist(path string) ([]string, error) {
 	}
 
 	return subdomains, scanner.Err()
+}
+
+func scan(url string, channel chan int) {
+	resp, err := http.Get(url)
+
+	if resp == nil || err != nil {
+		channel <- 0
+		return
+	}
+
+	channel <- resp.StatusCode
+	defer resp.Body.Close()
 }
